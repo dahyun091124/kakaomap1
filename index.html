@@ -46,6 +46,7 @@
     .info-box {
       padding: 8px;
       font-size: 13px;
+      line-height: 1.5;
     }
   </style>
 </head>
@@ -72,14 +73,15 @@
     // 학교 위치 좌표
     const schoolPosition = new kakao.maps.LatLng(37.6584, 126.8320);
 
-    // 카테고리별 마커 이미지
+    // 키워드별 마커 이미지
     const markerImages = {
-      CT1: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png",
-      MT1: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png"
+      western: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png",
+      korean: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png"
     };
 
+    let currentFoodType = "western";
+
     kakao.maps.load(function () {
-      // 지도 생성
       const mapContainer = document.getElementById("map");
 
       const mapOption = {
@@ -88,29 +90,26 @@
       };
 
       map = new kakao.maps.Map(mapContainer, mapOption);
-
-      // 장소 검색 객체 생성
       placeService = new kakao.maps.services.Places();
 
-      // 인포윈도우 생성
       infoWindow = new kakao.maps.InfoWindow({
         zIndex: 1
       });
 
-      // 탭 클릭 이벤트 연결
       document.getElementById("westernTab").addEventListener("click", function () {
-        changeCategory("CT1", this);
+        currentFoodType = "western";
+        changeKeyword("양식", this);
       });
 
       document.getElementById("koreanTab").addEventListener("click", function () {
-        changeCategory("MT1", this);
+        currentFoodType = "korean";
+        changeKeyword("한식", this);
       });
 
-      // 현재 위치 표시
       showCurrentLocation();
 
-      // 처음에는 양식 탭 검색
-      searchByCategory("CT1");
+      // 처음에는 양식 검색
+      searchByKeyword("양식");
     });
 
     // 현재 위치 표시
@@ -143,12 +142,12 @@
       );
     }
 
-    // 카테고리 검색
-    function searchByCategory(categoryCode) {
+    // 키워드 검색
+    function searchByKeyword(keyword) {
       removeMarkers();
 
-      placeService.categorySearch(
-        categoryCode,
+      placeService.keywordSearch(
+        keyword,
         placesSearchCallback,
         {
           location: schoolPosition,
@@ -177,9 +176,13 @@
     function displayMarker(place) {
       const position = new kakao.maps.LatLng(place.y, place.x);
 
-      const imageSrc = getMarkerImage(place.category_group_code);
+      const imageSrc = markerImages[currentFoodType];
       const imageSize = new kakao.maps.Size(32, 32);
-      const markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize);
+
+      const markerImage = new kakao.maps.MarkerImage(
+        imageSrc,
+        imageSize
+      );
 
       const marker = new kakao.maps.Marker({
         map: map,
@@ -203,11 +206,6 @@
       markers.push(marker);
     }
 
-    // 카테고리별 마커 이미지 선택
-    function getMarkerImage(categoryCode) {
-      return markerImages[categoryCode] || markerImages.CT1;
-    }
-
     // 기존 마커 삭제
     function removeMarkers() {
       for (let i = 0; i < markers.length; i++) {
@@ -222,7 +220,7 @@
     }
 
     // 탭 변경
-    function changeCategory(categoryCode, clickedButton) {
+    function changeKeyword(keyword, clickedButton) {
       const tabButtons = document.querySelectorAll(".tab-button");
 
       tabButtons.forEach(function (button) {
@@ -231,7 +229,7 @@
 
       clickedButton.classList.add("active");
 
-      searchByCategory(categoryCode);
+      searchByKeyword(keyword);
     }
   </script>
 </body>
