@@ -177,12 +177,6 @@
     let searchMarkers = [];
     let activeInfoWindow = null;
 
-    const markerImages = {
-      CT1: null,
-      MT1: null,
-      current: null
-    };
-
     const locationBtn = document.getElementById('locationBtn');
     const tabCt1 = document.getElementById('tabCt1');
     const tabMt1 = document.getElementById('tabMt1');
@@ -206,10 +200,6 @@
 
       map = new kakao.maps.Map(mapContainer, mapOption);
       placesService = new kakao.maps.services.Places();
-
-      markerImages.CT1 = createMarkerImage('#6b7280');
-      markerImages.MT1 = createMarkerImage('#ef4444');
-      markerImages.current = createMarkerImage('#2563eb');
     }
 
     function bindEvents() {
@@ -242,8 +232,7 @@
 
           currentMarker = new kakao.maps.Marker({
             map: map,
-            position: locLatLng,
-            image: markerImages.current
+            position: locLatLng
           });
 
           const infoWindow = new kakao.maps.InfoWindow({
@@ -317,4 +306,68 @@
 
       places.forEach(function (place) {
         const lat = parseFloat(place.y);
-        const lng = parseFloat(place
+        const lng = parseFloat(place.x);
+        const position = new kakao.maps.LatLng(lat, lng);
+
+        const marker = new kakao.maps.Marker({
+          map: map,
+          position: position
+        });
+
+        searchMarkers.push(marker);
+        bounds.extend(position);
+
+        const infoWindow = new kakao.maps.InfoWindow({
+          content: `
+            <div style="padding:8px 10px;font-size:13px;min-width:180px;">
+              <strong>${place.place_name}</strong><br/>
+              ${place.road_address_name || place.address_name || ''}
+            </div>
+          `
+        });
+
+        kakao.maps.event.addListener(marker, 'click', function () {
+          if (activeInfoWindow) activeInfoWindow.close();
+          infoWindow.open(map, marker);
+          activeInfoWindow = infoWindow;
+        });
+
+        const item = document.createElement('div');
+        item.className = 'item';
+        item.innerHTML = `
+          <div class="name">
+            ${place.place_name}
+            <span class="badge ${categoryCode === 'CT1' ? 'badge-ct1' : 'badge-mt1'}">${categoryCode}</span>
+          </div>
+          <div class="meta">
+            ${place.category_name || ''}<br/>
+            ${place.road_address_name || place.address_name || '주소 정보 없음'}<br/>
+            ${place.phone || '전화번호 정보 없음'}
+          </div>
+        `;
+
+        item.addEventListener('click', function () {
+          if (activeInfoWindow) activeInfoWindow.close();
+          infoWindow.open(map, marker);
+          activeInfoWindow = infoWindow;
+          map.panTo(position);
+        });
+
+        resultList.appendChild(item);
+      });
+
+      if (places.length > 0) {
+        map.setBounds(bounds);
+      }
+    }
+
+    function clearSearchMarkers() {
+      searchMarkers.forEach(function (marker) {
+        marker.setMap(null);
+      });
+      searchMarkers = [];
+      activeInfoWindow = null;
+    }
+  </script>
+</body>
+</html>
