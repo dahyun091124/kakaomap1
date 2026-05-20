@@ -126,6 +126,7 @@
     #map {
       flex: 1;
       height: 100vh;
+      background: #ddd;
     }
 
     @media (max-width: 900px) {
@@ -166,45 +167,61 @@
     <div id="map"></div>
   </div>
 
-  <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=1e632b5f3aa3734e98cfb9cd29e7c748&libraries=services"></script>
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=1e632b5f3aa3734e98cfb9cd29e7c748&libraries=services&autoload=false"></script>
   <script>
-    // 지도 초기 설정
-    const mapContainer = document.getElementById('map');
-    const mapOption = {
-      center: new kakao.maps.LatLng(37.5665, 126.9780),
-      level: 4
-    };
-    const map = new kakao.maps.Map(mapContainer, mapOption);
-    const placesService = new kakao.maps.services.Places();
-
-    // 상태 변수
+    let map;
+    let placesService;
     let currentPosition = null;
     let currentMarker = null;
     let currentCategory = 'CT1';
     let searchMarkers = [];
     let activeInfoWindow = null;
-    let currentSearchResults = [];
 
-    // DOM 요소
+    const markerImages = {
+      CT1: null,
+      MT1: null,
+      current: null
+    };
+
     const locationBtn = document.getElementById('locationBtn');
     const tabCt1 = document.getElementById('tabCt1');
     const tabMt1 = document.getElementById('tabMt1');
     const statusText = document.getElementById('statusText');
     const resultList = document.getElementById('resultList');
 
-    // 마커 이미지 생성
-    const markerImages = {
-      CT1: createMarkerImage('#6b7280'),
-      MT1: createMarkerImage('#ef4444'),
-      current: createMarkerImage('#2563eb')
-    };
+    kakao.maps.load(function () {
+      initMap();
+      bindEvents();
+      showCurrentLocation(function () {
+        searchByCategory(currentCategory, currentPosition.lat, currentPosition.lng);
+      });
+    });
 
-    // 이벤트 연결
-    locationBtn.addEventListener('click', showCurrentLocation);
-    tabCt1.addEventListener('click', () => switchCategory('CT1'));
-    tabMt1.addEventListener('click', () => switchCategory('MT1'));
+    function initMap() {
+      const mapContainer = document.getElementById('map');
+      const mapOption = {
+        center: new kakao.maps.LatLng(37.5665, 126.9780),
+        level: 4
+      };
 
-    // 현재 위치 표시
+      map = new kakao.maps.Map(mapContainer, mapOption);
+      placesService = new kakao.maps.services.Places();
+
+      markerImages.CT1 = createMarkerImage('#6b7280');
+      markerImages.MT1 = createMarkerImage('#ef4444');
+      markerImages.current = createMarkerImage('#2563eb');
+    }
+
+    function bindEvents() {
+      locationBtn.addEventListener('click', showCurrentLocation);
+      tabCt1.addEventListener('click', function () {
+        switchCategory('CT1');
+      });
+      tabMt1.addEventListener('click', function () {
+        switchCategory('MT1');
+      });
+    }
+
     function showCurrentLocation(callback) {
       if (!navigator.geolocation) {
         alert('이 브라우저에서는 위치 정보를 사용할 수 없습니다.');
@@ -237,9 +254,7 @@
           map.setCenter(locLatLng);
           statusText.textContent = '현재 위치를 표시했습니다. 이제 카테고리를 선택하세요.';
 
-          if (typeof callback === 'function') {
-            callback();
-          }
+          if (typeof callback === 'function') callback();
         },
         function () {
           alert('현재 위치를 가져오지 못했습니다.');
@@ -252,7 +267,6 @@
       );
     }
 
-    // 탭 전환
     function switchCategory(categoryCode) {
       currentCategory = categoryCode;
 
@@ -273,7 +287,6 @@
       searchByCategory(currentCategory, currentPosition.lat, currentPosition.lng);
     }
 
-    // 카테고리 검색
     function searchByCategory(categoryCode, lat, lng) {
       const location = new kakao.maps.LatLng(lat, lng);
 
@@ -288,7 +301,6 @@
             return;
           }
 
-          currentSearchResults = data;
           renderPlaces(data, categoryCode);
           statusText.textContent = `총 ${data.length}개의 결과를 찾았습니다.`;
         },
@@ -300,98 +312,9 @@
       );
     }
 
-    // 결과 렌더링
     function renderPlaces(places, categoryCode) {
       const bounds = new kakao.maps.LatLngBounds();
 
-      places.forEach(function (place, index) {
+      places.forEach(function (place) {
         const lat = parseFloat(place.y);
-        const lng = parseFloat(place.x);
-        const position = new kakao.maps.LatLng(lat, lng);
-
-        const marker = new kakao.maps.Marker({
-          map: map,
-          position: position,
-          image: markerImages[categoryCode]
-        });
-
-        searchMarkers.push(marker);
-        bounds.extend(position);
-
-        const infoWindow = new kakao.maps.InfoWindow({
-          content: `
-            <div style="padding:8px 10px;font-size:13px;min-width:180px;">
-              <strong>${place.place_name}</strong><br/>
-              ${place.road_address_name || place.address_name || ''}
-            </div>
-          `
-        });
-
-        kakao.maps.event.addListener(marker, 'click', function () {
-          if (activeInfoWindow) {
-            activeInfoWindow.close();
-          }
-          infoWindow.open(map, marker);
-          activeInfoWindow = infoWindow;
-        });
-
-        const item = document.createElement('div');
-        item.className = 'item';
-        item.innerHTML = `
-          <div class="name">
-            ${place.place_name}
-            <span class="badge ${categoryCode === 'CT1' ? 'badge-ct1' : 'badge-mt1'}">${categoryCode}</span>
-          </div>
-          <div class="meta">
-            ${place.category_name || ''}<br/>
-            ${place.road_address_name || place.address_name || '주소 정보 없음'}<br/>
-            ${place.phone || '전화번호 정보 없음'}
-          </div>
-        `;
-
-        item.addEventListener('click', function () {
-          if (activeInfoWindow) {
-            activeInfoWindow.close();
-          }
-          infoWindow.open(map, marker);
-          activeInfoWindow = infoWindow;
-          map.panTo(position);
-        });
-
-        resultList.appendChild(item);
-      });
-
-      if (places.length > 0) {
-        map.setBounds(bounds);
-      }
-    }
-
-    // 기존 검색 마커 삭제
-    function clearSearchMarkers() {
-      searchMarkers.forEach(function (marker) {
-        marker.setMap(null);
-      });
-      searchMarkers = [];
-
-      activeInfoWindow = null;
-    }
-
-    // 색상 마커 생성
-    function createMarkerImage(color) {
-      const svg = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="46" viewBox="0 0 36 46">
-          <path d="M18 46s14-16.2 14-28.2C32 8.8 25.7 2 18 2S4 8.8 4 17.8C4 29.8 18 46 18 46z" fill="${color}"/>
-          <circle cx="18" cy="18" r="6.5" fill="white"/>
-        </svg>
-      `;
-      const url = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
-      return new kakao.maps.MarkerImage(url, new kakao.maps.Size(36, 46));
-    }
-
-    // 초기 실행
-    showCurrentLocation(function () {
-      searchByCategory(currentCategory, currentPosition.lat, currentPosition.lng);
-    });
-  </script>
-</body>
-</html>
+        const lng = parseFloat(place
